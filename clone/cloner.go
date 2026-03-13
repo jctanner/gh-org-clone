@@ -17,7 +17,7 @@ type Result struct {
 }
 
 // CloneAll clones all repositories to the target directory
-func CloneAll(repos []github.Repository, targetDir string) Result {
+func CloneAll(repos []github.Repository, targetDir string, branch string) Result {
 	result := Result{}
 
 	// Create target directory
@@ -29,6 +29,9 @@ func CloneAll(repos []github.Repository, targetDir string) Result {
 	for i, repo := range repos {
 		fmt.Printf("Cloning repository %d/%d: %s\n", i+1, len(repos), repo.Name)
 		fmt.Printf("  URL: %s\n", repo.CloneURL)
+		if branch != "" {
+			fmt.Printf("  Branch: %s\n", branch)
+		}
 
 		repoPath := filepath.Join(targetDir, repo.Name)
 
@@ -39,14 +42,25 @@ func CloneAll(repos []github.Repository, targetDir string) Result {
 			continue
 		}
 
-		// Clone the repository
-		cmd := exec.Command("git", "clone", repo.CloneURL, repoPath)
+		// Build git clone command
+		var cmd *exec.Cmd
+		if branch != "" {
+			cmd = exec.Command("git", "clone", "-b", branch, repo.CloneURL, repoPath)
+		} else {
+			cmd = exec.Command("git", "clone", repo.CloneURL, repoPath)
+		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("  Failed: %v\n", err)
-			result.Failed++
+			// If a specific branch was requested and clone failed, skip the repo
+			if branch != "" {
+				fmt.Printf("  Skipped (branch '%s' not found)\n", branch)
+				result.Skipped++
+			} else {
+				fmt.Printf("  Failed: %v\n", err)
+				result.Failed++
+			}
 			continue
 		}
 

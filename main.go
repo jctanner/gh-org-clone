@@ -1,20 +1,36 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/jctanner/gh-org-clone/clone"
 	"github.com/jctanner/gh-org-clone/github"
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <org-name>\n", os.Args[0])
+	// Define flags
+	pathFlag := flag.String("path", ".", "Base directory for cloning repositories")
+	branchFlag := flag.String("branch", "", "Specific branch to clone (skips repos without this branch)")
+
+	// Custom usage function
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] <org-name>\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+
+	// Check for positional argument
+	if flag.NArg() != 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	orgName := os.Args[1]
+	orgName := flag.Arg(0)
 
 	fmt.Printf("Fetching repositories for: %s\n", orgName)
 
@@ -29,8 +45,8 @@ func main() {
 	fmt.Printf("Found %d repositories\n\n", len(repos))
 
 	// Clone all repositories
-	targetDir := orgName
-	result := clone.CloneAll(repos, targetDir)
+	targetDir := filepath.Join(*pathFlag, orgName)
+	result := clone.CloneAll(repos, targetDir, *branchFlag)
 
 	// Print summary
 	fmt.Printf("\nSummary:\n")
