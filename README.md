@@ -18,16 +18,41 @@ Binary will be created at `bin/gh-org-clone`.
 ## Usage
 
 ```bash
-./bin/gh-org-clone <org-or-username>
+./bin/gh-org-clone [options] <org-or-username>
 ```
 
-Example:
+### Options
 
+- `--path <directory>`: Base directory for cloning repositories (default: current directory)
+- `--branch <branch-name>`: Clone only the specified branch; skips repositories that don't have this branch
+
+### Examples
+
+Basic usage:
 ```bash
 ./bin/gh-org-clone opendatahub-io
 ```
 
 This creates a directory named after the organization and clones all repositories into it.
+
+Clone to a specific directory:
+```bash
+./bin/gh-org-clone --path=checkouts opendatahub-io
+```
+
+This creates `checkouts/opendatahub-io/` and clones all repositories there.
+
+Clone only a specific branch:
+```bash
+./bin/gh-org-clone --branch=v2.0 opendatahub-io
+```
+
+This clones only the `v2.0` branch from each repository. Repositories without this branch are skipped.
+
+Combine both options:
+```bash
+./bin/gh-org-clone --path=checkouts --branch=main opendatahub-io
+```
 
 ## Authentication
 
@@ -56,5 +81,6 @@ Copies the binary to `~/bin/gh-org-clone`.
 
 - Tries organization endpoint first, falls back to user endpoint on 404
 - Skips repositories that already exist locally
+- When `--branch` is specified, skips repositories that don't have that branch
 - Reports summary of cloned, failed, and skipped repositories
 - Shows git clone output in real-time
