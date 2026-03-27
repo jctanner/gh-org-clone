@@ -18,9 +18,15 @@ type Client struct {
 
 // NewClient creates a new GitHub API client
 func NewClient() *Client {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token != "" {
+		fmt.Printf("Using authenticated GitHub API (token found: %d characters)\n", len(token))
+	} else {
+		fmt.Printf("No GITHUB_TOKEN found - using unauthenticated API (60 requests/hour limit)\n")
+	}
 	return &Client{
 		httpClient: &http.Client{},
-		token:      os.Getenv("GITHUB_TOKEN"),
+		token:      token,
 	}
 }
 
@@ -49,14 +55,15 @@ func (c *Client) ListRepositories(orgOrUser string) ([]Repository, error) {
 // fetchRepositoriesPage fetches a single page of repositories
 func (c *Client) fetchRepositoriesPage(orgOrUser string, page int) ([]Repository, bool, error) {
 	// Try organization endpoint first
-	repos, hasMore, err := c.fetchPage(fmt.Sprintf("https://api.github.com/orgs/%s/repos?per_page=100&page=%d", orgOrUser, page))
+	// type=all ensures we get both public and private repos (requires authentication for private)
+	repos, hasMore, err := c.fetchPage(fmt.Sprintf("https://api.github.com/orgs/%s/repos?type=all&per_page=100&page=%d", orgOrUser, page))
 	if err == nil {
 		return repos, hasMore, nil
 	}
 
 	// If org endpoint fails with 404, try user endpoint
 	if isNotFoundError(err) {
-		return c.fetchPage(fmt.Sprintf("https://api.github.com/users/%s/repos?per_page=100&page=%d", orgOrUser, page))
+		return c.fetchPage(fmt.Sprintf("https://api.github.com/users/%s/repos?type=all&per_page=100&page=%d", orgOrUser, page))
 	}
 
 	return nil, false, err
@@ -71,7 +78,17 @@ func (c *Client) fetchPage(url string) ([]Repository, bool, error) {
 
 	// Add authentication if token is available
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		// GitHub uses different auth header formats:
+		// - Classic PAT: "token GITHUB_TOKEN"
+		// - Fine-grained PAT: "Bearer GITHUB_TOKEN"
+		// Try classic format first (more common)
+		if len(c.token) > 4 && c.token[:4] == "ghp_" {
+			// Classic personal access token
+			req.Header.Set("Authorization", "token "+c.token)
+		} else {
+			// Fine-grained or other token types
+			req.Header.Set("Authorization", "Bearer "+c.token)
+		}
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
@@ -92,6 +109,7 @@ func (c *Client) fetchPage(url string) ([]Repository, bool, error) {
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, false, &NotFoundError{Message: string(body)}
 		}
+		fmt.Printf("API Error - Status: %d, Response: %s\n", resp.StatusCode, string(body))
 		return nil, false, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -111,6 +129,7 @@ func (c *Client) fetchPage(url string) ([]Repository, bool, error) {
 func (c *Client) checkRateLimit(resp *http.Response) error {
 	remainingStr := resp.Header.Get("X-RateLimit-Remaining")
 	resetStr := resp.Header.Get("X-RateLimit-Reset")
+	limitStr := resp.Header.Get("X-RateLimit-Limit")
 
 	if remainingStr == "" || resetStr == "" {
 		return nil
@@ -126,8 +145,14 @@ func (c *Client) checkRateLimit(resp *http.Response) error {
 		return nil
 	}
 
-	// If we're out of requests or about to be, wait
-	if remaining == 0 || resp.StatusCode == http.StatusForbidden {
+	// Show rate limit info on first request or when low
+	if limitStr != "" {
+		fmt.Printf("Rate limit: %s/%s remaining\n", remainingStr, limitStr)
+	}
+
+	// If we're out of requests, wait for reset
+	// Only treat 403 as rate limit if we actually have 0 requests remaining
+	if remaining == 0 || (resp.StatusCode == http.StatusForbidden && remaining == 0) {
 		resetTime := time.Unix(reset, 0)
 		waitDuration := time.Until(resetTime)
 

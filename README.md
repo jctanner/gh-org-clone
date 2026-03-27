@@ -26,6 +26,7 @@ Binary will be created at `bin/gh-org-clone`.
 - `--path <directory>`: Base directory for cloning repositories (default: current directory)
 - `--branch <branch-name>`: Clone only the specified branch; skips repositories that don't have this branch
 - `--ssh`: Force SSH clone URLs for all repositories (default: automatic SSH for private repos)
+- `--list`: List repositories without cloning them
 
 ### Examples
 
@@ -58,6 +59,11 @@ Combine both options:
 Force SSH for all repositories:
 ```bash
 ./bin/gh-org-clone --ssh opendatahub-io
+```
+
+List repositories without cloning:
+```bash
+./bin/gh-org-clone --list opendatahub-io
 ```
 
 ## Authentication
