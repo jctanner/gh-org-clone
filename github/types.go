@@ -4,6 +4,7 @@ package github
 type Repository struct {
 	Name     string `json:"name"`
 	CloneURL string `json:"clone_url"`
+	SSHURL   string `json:"ssh_url"`
 	Private  bool   `json:"private"`
 }
 

@@ -17,7 +17,7 @@ type Result struct {
 }
 
 // CloneAll clones all repositories to the target directory
-func CloneAll(repos []github.Repository, targetDir string, branch string) Result {
+func CloneAll(repos []github.Repository, targetDir string, branch string, useSSH bool) Result {
 	result := Result{}
 
 	// Create target directory
@@ -28,7 +28,18 @@ func CloneAll(repos []github.Repository, targetDir string, branch string) Result
 
 	for i, repo := range repos {
 		fmt.Printf("Cloning repository %d/%d: %s\n", i+1, len(repos), repo.Name)
-		fmt.Printf("  URL: %s\n", repo.CloneURL)
+
+		// Determine which clone URL to use
+		// Use SSH if: --ssh flag is set OR repository is private
+		cloneURL := repo.CloneURL
+		if useSSH || repo.Private {
+			cloneURL = repo.SSHURL
+			if repo.Private {
+				fmt.Printf("  Private repo - using SSH\n")
+			}
+		}
+
+		fmt.Printf("  URL: %s\n", cloneURL)
 		if branch != "" {
 			fmt.Printf("  Branch: %s\n", branch)
 		}
@@ -45,9 +56,9 @@ func CloneAll(repos []github.Repository, targetDir string, branch string) Result
 		// Build git clone command
 		var cmd *exec.Cmd
 		if branch != "" {
-			cmd = exec.Command("git", "clone", "-b", branch, repo.CloneURL, repoPath)
+			cmd = exec.Command("git", "clone", "-b", branch, cloneURL, repoPath)
 		} else {
-			cmd = exec.Command("git", "clone", repo.CloneURL, repoPath)
+			cmd = exec.Command("git", "clone", cloneURL, repoPath)
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -14,6 +14,7 @@ func main() {
 	// Define flags
 	pathFlag := flag.String("path", ".", "Base directory for cloning repositories")
 	branchFlag := flag.String("branch", "", "Specific branch to clone (skips repos without this branch)")
+	sshFlag := flag.Bool("ssh", false, "Force SSH clone URLs for all repositories")
 
 	// Custom usage function
 	flag.Usage = func() {
@@ -46,7 +47,7 @@ func main() {
 
 	// Clone all repositories
 	targetDir := filepath.Join(*pathFlag, orgName)
-	result := clone.CloneAll(repos, targetDir, *branchFlag)
+	result := clone.CloneAll(repos, targetDir, *branchFlag, *sshFlag)
 
 	// Print summary
 	fmt.Printf("\nSummary:\n")
