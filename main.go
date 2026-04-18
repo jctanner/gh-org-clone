@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jctanner/gh-org-clone/clone"
 	"github.com/jctanner/gh-org-clone/github"
@@ -16,6 +17,7 @@ func main() {
 	branchFlag := flag.String("branch", "", "Specific branch to clone (skips repos without this branch)")
 	sshFlag := flag.Bool("ssh", false, "Force SSH clone URLs for all repositories")
 	listFlag := flag.Bool("list", false, "List repositories without cloning")
+	excludeFlag := flag.String("exclude", "", "Comma-separated glob patterns to exclude repos (e.g. 'test-*,*-docs')")
 
 	// Custom usage function
 	flag.Usage = func() {
@@ -42,6 +44,32 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error fetching repositories: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Apply exclusion patterns
+	if *excludeFlag != "" {
+		patterns := strings.Split(*excludeFlag, ",")
+		var filtered []github.Repository
+		excluded := 0
+		for _, repo := range repos {
+			matched := false
+			for _, pattern := range patterns {
+				pattern = strings.TrimSpace(pattern)
+				if ok, _ := filepath.Match(pattern, repo.Name); ok {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				excluded++
+			} else {
+				filtered = append(filtered, repo)
+			}
+		}
+		if excluded > 0 {
+			fmt.Printf("Excluded %d repositories matching patterns: %s\n", excluded, *excludeFlag)
+		}
+		repos = filtered
 	}
 
 	// Count private vs public repos
