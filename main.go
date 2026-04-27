@@ -18,6 +18,7 @@ func main() {
 	sshFlag := flag.Bool("ssh", false, "Force SSH clone URLs for all repositories")
 	listFlag := flag.Bool("list", false, "List repositories without cloning")
 	excludeFlag := flag.String("exclude", "", "Comma-separated glob patterns to exclude repos (e.g. 'test-*,*-docs')")
+	suffixFlag := flag.String("suffix", "", "Suffix to append to the org directory name (e.g. -suffix rhoai-3.4 creates <org>.rhoai-3.4)")
 
 	// Custom usage function
 	flag.Usage = func() {
@@ -97,7 +98,11 @@ func main() {
 	}
 
 	// Clone all repositories
-	targetDir := filepath.Join(*pathFlag, orgName)
+	dirName := orgName
+	if *suffixFlag != "" {
+		dirName = orgName + "." + *suffixFlag
+	}
+	targetDir := filepath.Join(*pathFlag, dirName)
 	result := clone.CloneAll(repos, targetDir, *branchFlag, *sshFlag)
 
 	// Print summary
